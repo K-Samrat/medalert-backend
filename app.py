@@ -22,7 +22,7 @@ def ocr():
         try:
             # Prepare the request for the OCR.space API
             api_url = 'https://api.ocr.space/parse/image'
-            api_key = 'K8d2d89f88d8957' # Use your actual API key here
+            api_key = 'K87359756488957' # Use your actual API key here
 
             payload = {'apikey': api_key}
             files = {'file': (file.filename, file.read(), file.content_type)}
