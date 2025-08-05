@@ -1,44 +1,47 @@
-import pytesseract
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from PIL import Image
-import io
-
-# If you did not add Tesseract to your system's PATH during installation,
-# you must tell Python where the tesseract.exe file is.
-# Uncomment the line below if you have issues later.
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Initialize the Flask app
 app = Flask(__name__)
-CORS(app) # Allow communication from your React app
+CORS(app)
 
 @app.route('/ocr', methods=['POST'])
 def ocr():
-    # Check if a file was posted in the request
     if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
+        return jsonify({'error': 'No file part'}), 400
     
     file = request.files['file']
 
-    # Check if the user selected a file
     if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+        return jsonify({'error': 'No selected file'}), 400
 
     if file:
         try:
-            # Read the image file
-            image_bytes = file.read()
-            image = Image.open(io.BytesIO(image_bytes))
+            # Prepare the request for the OCR.space API
+            api_url = 'https://api.ocr.space/parse/image'
+            api_key = 'K87359756488957'
 
-            # Use Pytesseract to extract text from the image
-            text = pytesseract.image_to_string(image, lang='eng')
+            payload = {'apikey': api_key}
+            files = {'file': (file.filename, file.read(), file.content_type)}
             
-            # Return the extracted text in a JSON format
-            return jsonify({'text': text})
+            # Send the request
+            response = requests.post(api_url, files=files, data=payload)
+            response.raise_for_status() # Raise an exception for bad status codes
+
+            result = response.json()
+
+            # Check if the API call was successful and text was found
+            if result.get('IsErroredOnProcessing'):
+                return jsonify({'error': result.get('ErrorMessage', ['OCR processing error'])[0]}), 500
+            
+            parsed_text = result.get('ParsedResults', [{}])[0].get('ParsedText', '')
+            
+            return jsonify({'text': parsed_text})
+        except requests.exceptions.RequestException as e:
+            return jsonify({'error': f"API request failed: {e}"}), 500
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Run the backend server on port 5000
     app.run(debug=True, port=5000)
