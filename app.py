@@ -1,10 +1,7 @@
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from PIL import Image # <--- THIS LINE WAS MISSING
-import io
 
-# Initialize the Flask app
 app = Flask(__name__)
 CORS(app)
 
@@ -20,14 +17,16 @@ def ocr():
 
     if file:
         try:
-            # Prepare the request for the OCR.space API
             api_url = 'https://api.ocr.space/parse/image'
-            api_key = 'K87359756488957' # Use your actual API key here
+            api_key = 'K87359756488957'
 
-            payload = {'apikey': api_key}
+            # Use OCREngine 2 for better accuracy on non-document images
+            payload = {
+                'apikey': api_key,
+                'OCREngine': '2' 
+            }
             files = {'file': (file.filename, file.read(), file.content_type)}
             
-            # Send the request
             response = requests.post(api_url, files=files, data=payload)
             response.raise_for_status()
 
