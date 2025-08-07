@@ -3,7 +3,11 @@ import requests
 import google.generativeai as genai
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from PIL import Image
+import io
+from dotenv import load_dotenv # <--- THIS LINE WAS MISSING
 
+# Load variables from the .env file
 load_dotenv()
 
 # --- Configurations ---
@@ -40,7 +44,6 @@ def correct_text_with_ai(text_to_correct):
         return f"AI Correction Failed. Raw Text: {text_to_correct}"
 
 def get_ocr_text(image_bytes, engine_number):
-    """Function to call the OCR.space API with a specific engine."""
     ocr_api_url = 'https://api.ocr.space/parse/image'
     payload = {
         'apikey': OCR_SPACE_API_KEY,
@@ -72,16 +75,12 @@ def ocr():
     if file:
         try:
             image_bytes = file.read()
-            
-            # --- NEW: Try Engine 2 first ---
             raw_text = get_ocr_text(image_bytes, 2)
             
-            # --- NEW: If Engine 2 fails, try Engine 5 (often better for grids/receipts) ---
             if not raw_text.strip():
                 print("Engine 2 failed, trying Engine 5...")
                 raw_text = get_ocr_text(image_bytes, 5)
 
-            # --- AI Correction Step ---
             clean_text = correct_text_with_ai(raw_text)
 
             return jsonify({'text': clean_text or "Could not extract any text from the image."})
