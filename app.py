@@ -3,15 +3,13 @@ import requests
 import google.generativeai as genai
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from PIL import Image
-import io
-from dotenv import load_dotenv
 
 load_dotenv()
 
+# --- Configurations ---
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY')
 genai.configure(api_key=GOOGLE_API_KEY)
-# Using the newer, more robust model name
 model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 app = Flask(__name__)
@@ -19,13 +17,12 @@ CORS(app)
 
 def correct_text_with_ai(text_to_correct):
     if not text_to_correct.strip():
-        # If OCR returns no text, we return nothing.
         return ""
     
     prompt = (
-        "The following text was extracted from an image using OCR and may contain spelling and formatting errors. "
-        "Please correct the text to make it clean, readable, and accurate. Preserve the original line breaks if possible. "
-        "Do not add any commentary or introductory phrases, just provide the corrected text.\n\n"
+        "The following text was extracted from an image using OCR and contains errors. "
+        "Correct all spelling and grammatical mistakes to make it clean and accurate. "
+        "Do not add any commentary, just provide the corrected text.\n\n"
         "Messy Text:\n---\n"
         f"{text_to_correct}\n"
         "---\n\n"
@@ -34,15 +31,34 @@ def correct_text_with_ai(text_to_correct):
     
     try:
         response = model.generate_content(prompt)
-        # Added safety check for response parts
         if response.parts:
             return response.text
         else:
-            # Handle cases where the model returns no content (e.g., safety blocks)
             return f"AI model returned no content. Raw Text: {text_to_correct}"
     except Exception as e:
         print(f"AI Correction Error: {e}")
         return f"AI Correction Failed. Raw Text: {text_to_correct}"
+
+def get_ocr_text(image_bytes, engine_number):
+    """Function to call the OCR.space API with a specific engine."""
+    ocr_api_url = 'https://api.ocr.space/parse/image'
+    payload = {
+        'apikey': OCR_SPACE_API_KEY,
+        'OCREngine': str(engine_number),
+        'scale': 'true',
+        'detectOrientation': 'true'
+    }
+    files = {'file': ('image.jpg', image_bytes)}
+    
+    response = requests.post(ocr_api_url, files=files, data=payload)
+    response.raise_for_status()
+    result = response.json()
+
+    if result.get('IsErroredOnProcessing'):
+        print(f"Engine {engine_number} Error: {result.get('ErrorMessage')}")
+        return ""
+    
+    return result.get('ParsedResults', [{}])[0].get('ParsedText', '')
 
 @app.route('/ocr', methods=['POST'])
 def ocr():
@@ -50,30 +66,25 @@ def ocr():
         return jsonify({'error': 'No file part'}), 400
     
     file = request.files['file']
-
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
     if file:
         try:
-            ocr_api_url = 'https://api.ocr.space/parse/image'
-            ocr_api_key = os.getenv('OCR_SPACE_API_KEY')
+            image_bytes = file.read()
             
-            payload = {'apikey': ocr_api_key, 'OCREngine': '2'}
-            files = {'file': (file.filename, file.read(), file.content_type)}
+            # --- NEW: Try Engine 2 first ---
+            raw_text = get_ocr_text(image_bytes, 2)
             
-            response = requests.post(ocr_api_url, files=files, data=payload)
-            response.raise_for_status()
-            ocr_result = response.json()
+            # --- NEW: If Engine 2 fails, try Engine 5 (often better for grids/receipts) ---
+            if not raw_text.strip():
+                print("Engine 2 failed, trying Engine 5...")
+                raw_text = get_ocr_text(image_bytes, 5)
 
-            if ocr_result.get('IsErroredOnProcessing'):
-                return jsonify({'error': ocr_result.get('ErrorMessage', ['OCR processing error'])[0]}), 500
-            
-            raw_text = ocr_result.get('ParsedResults', [{}])[0].get('ParsedText', '')
-            
+            # --- AI Correction Step ---
             clean_text = correct_text_with_ai(raw_text)
 
-            return jsonify({'text': clean_text})
+            return jsonify({'text': clean_text or "Could not extract any text from the image."})
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
