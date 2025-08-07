@@ -7,24 +7,17 @@ from PIL import Image
 import io
 from dotenv import load_dotenv
 
-# Load variables from the .env file
 load_dotenv()
 
-# --- AI Configuration ---
-# Get API keys from environment variables
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY')
-
-# Configure the Gemini client
 genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
-# ----------------------
+# This line is the only change
+model = genai.GenerativeModel('gemini-1.0-pro')
 
 app = Flask(__name__)
 CORS(app)
 
 def correct_text_with_ai(text_to_correct):
-    """Uses the Gemini AI to correct OCR text."""
     if not text_to_correct.strip():
         return ""
     
@@ -45,7 +38,6 @@ def correct_text_with_ai(text_to_correct):
         print(f"AI Correction Error: {e}")
         return f"AI Correction Failed. Raw Text: {text_to_correct}"
 
-
 @app.route('/ocr', methods=['POST'])
 def ocr():
     if 'file' not in request.files:
@@ -58,10 +50,10 @@ def ocr():
 
     if file:
         try:
-            # --- Step 1: Raw OCR Extraction ---
             ocr_api_url = 'https://api.ocr.space/parse/image'
+            ocr_api_key = os.getenv('OCR_SPACE_API_KEY')
             
-            payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': '2'}
+            payload = {'apikey': ocr_api_key, 'OCREngine': '2'}
             files = {'file': (file.filename, file.read(), file.content_type)}
             
             response = requests.post(ocr_api_url, files=files, data=payload)
@@ -73,7 +65,6 @@ def ocr():
             
             raw_text = ocr_result.get('ParsedResults', [{}])[0].get('ParsedText', '')
             
-            # --- Step 2: AI Correction ---
             clean_text = correct_text_with_ai(raw_text)
 
             return jsonify({'text': clean_text})
