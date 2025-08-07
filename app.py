@@ -11,14 +11,15 @@ load_dotenv()
 
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 genai.configure(api_key=GOOGLE_API_KEY)
-# This line is the only change
-model = genai.GenerativeModel('gemini-1.0-pro')
+# Using the newer, more robust model name
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 app = Flask(__name__)
 CORS(app)
 
 def correct_text_with_ai(text_to_correct):
     if not text_to_correct.strip():
+        # If OCR returns no text, we return nothing.
         return ""
     
     prompt = (
@@ -33,7 +34,12 @@ def correct_text_with_ai(text_to_correct):
     
     try:
         response = model.generate_content(prompt)
-        return response.text
+        # Added safety check for response parts
+        if response.parts:
+            return response.text
+        else:
+            # Handle cases where the model returns no content (e.g., safety blocks)
+            return f"AI model returned no content. Raw Text: {text_to_correct}"
     except Exception as e:
         print(f"AI Correction Error: {e}")
         return f"AI Correction Failed. Raw Text: {text_to_correct}"
