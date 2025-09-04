@@ -27,13 +27,11 @@ def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
-    # --- REVERTED to the simpler, more stable prompt ---
     prompt = (
-        "You are an expert data extractor for consumer products. "
-        "Analyze the following text from a product's packaging. Your task is to extract: "
-        "'productName', 'description', and 'ingredients'. "
-        "Format your response as a JSON object. "
-        "If a field is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
+        "You are an expert data extractor for health products. Analyze the following text extracted from a product's packaging. "
+        "Your task is to identify and extract the following information: the product's name, a brief description (especially noting consumption instructions), and a list of all ingredients. "
+        "Format your response as a JSON object only. The JSON object should have three keys: 'productName', 'description', and 'ingredients'. "
+        "If a piece of information is not found in the text, its value should be null. Do not add any commentary or introductory text outside of the JSON object.\n\n"
         "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
         "---\n\n"
@@ -55,6 +53,7 @@ def get_ocr_text(image_bytes, engine_number=2):
     response = requests.post(ocr_api_url, files=files, data=payload)
     response.raise_for_status()
     result = response.json()
+
     if result.get('IsErroredOnProcessing'):
         print(f"Engine {engine_number} Error: {result.get('ErrorMessage')}")
         return ""
