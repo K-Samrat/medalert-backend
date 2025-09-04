@@ -23,11 +23,17 @@ def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
+    # --- NEW PROMPT INCLUDING "quantity" ---
     prompt = (
-        "You are an expert data extractor for health products. Analyze the following text extracted from a product's packaging. "
-        "Your task is to identify and extract the following information: the product's name, a brief description (especially noting consumption instructions), and a list of all ingredients. "
-        "Format your response as a JSON object only. The JSON object should have three keys: 'productName', 'description', and 'ingredients'. "
-        "If a piece of information is not found in the text, its value should be null. Do not add any commentary or introductory text outside of the JSON object.\n\n"
+        "You are an expert data extractor for consumer products, specializing in health and nutrition. "
+        "Analyze the following text from a product's packaging. Your task is to identify and extract the following: "
+        "1. 'productName': The main brand name. "
+        "2. 'quantity': The net quantity of the product (e.g., '10 Tablets', '500ml', '75g'). "
+        "3. 'description': A brief summary, warnings, or dosage instructions. "
+        "4. 'ingredients': A list of all ingredients. "
+        "5. 'nutritionFacts': A list of all nutrition facts (e.g., 'Calories 150', 'Total Fat 5g'). "
+        "Format your response as a JSON object with five keys: 'productName', 'quantity', 'description', 'ingredients', and 'nutritionFacts'. "
+        "If a piece of information is not found, its value should be null. Do not add any text outside of the JSON object.\n\n"
         "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
         "---\n\n"
@@ -42,34 +48,24 @@ def extract_structured_data(text_to_analyze):
         print(f"AI Data Extraction Error: {e}")
         return {"error": "Failed to parse AI response."}
 
+# ... (the rest of the app.py code remains the same) ...
 def get_ocr_text(image_bytes, engine_number=2):
-    """Function to call the OCR.space API."""
     ocr_api_url = 'https://api.ocr.space/parse/image'
-    payload = {
-        'apikey': OCR_SPACE_API_KEY,
-        'OCREngine': str(engine_number)
-    }
+    payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': str(engine_number)}
     files = {'file': ('image.jpg', image_bytes)}
     response = requests.post(ocr_api_url, files=files, data=payload)
     response.raise_for_status()
     result = response.json()
-
     if result.get('IsErroredOnProcessing'):
         print(f"Engine {engine_number} Error: {result.get('ErrorMessage')}")
         return ""
     return result.get('ParsedResults', [{}])[0].get('ParsedText', '')
 
-@app.route('/')
-def index():
-    return {"message": "Welcome to the MedAlert OCR and Data Extraction API. Use the /ocr endpoint to upload images.", "status": "ok"}
-
 @app.route('/ocr', methods=['POST'])
 def ocr():
-    # --- THIS IS THE CORRECTED LOGIC ---
-    files = request.files.getlist('files[]') # Get list of files
-
+    files = request.files.getlist('files[]')
     if not files or files[0].filename == '':
-        return jsonify({'error': 'No files selected'}), 400
+        return jsonify({'error': 'No selected files'}), 400
     
     all_raw_text = ""
     for file in files:
