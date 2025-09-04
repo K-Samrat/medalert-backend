@@ -24,17 +24,20 @@ def health_check():
     return jsonify({"status": "ok"}), 200
 
 def extract_structured_data(text_to_analyze):
-    if not text_to_analyze or not text_to_analyze.strip():
-        return {"error": "No text was extracted from the image to analyze."}
+    if not text_to_analyze.strip():
+        return None
     
+    # --- REVERTED to the simpler, more stable prompt ---
     prompt = (
-        "You are an expert data extractor for consumer products. Analyze the following OCR text. "
-        "Your task is to extract: 'productName', 'quantity', 'description', and 'ingredients'. "
-        "Format your response as a JSON object. If a field is not found, its value must be null. "
-        "Do not add any text outside of the single JSON object.\n\n"
-        "--- OCR TEXT ---\n"
+        "You are an expert data extractor for consumer products. "
+        "Analyze the following text from a product's packaging. Your task is to extract: "
+        "'productName', 'description', and 'ingredients'. "
+        "Format your response as a JSON object. "
+        "If a field is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
+        "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
-        "--- JSON OUTPUT ---"
+        "---\n\n"
+        "JSON Output:"
     )
     
     try:
@@ -43,7 +46,7 @@ def extract_structured_data(text_to_analyze):
         return json.loads(json_string)
     except Exception as e:
         print(f"AI Data Extraction Error: {e}")
-        return {"error": f"AI failed to generate valid data. Details: {str(e)}"}
+        return {"error": "Failed to parse AI response."}
 
 def get_ocr_text(image_bytes, engine_number=2):
     ocr_api_url = 'https://api.ocr.space/parse/image'
@@ -61,24 +64,16 @@ def get_ocr_text(image_bytes, engine_number=2):
 def ocr():
     files = request.files.getlist('files[]')
     if not files or files[0].filename == '':
-        return jsonify({'error': 'No files selected'}), 400
+        return jsonify({'error': 'No selected files'}), 400
     
     all_raw_text = ""
     for file in files:
         try:
-            # Added a specific try-except for image processing
-            try:
-                image_bytes = file.read()
-                # Verify image can be opened by Pillow to prevent deep errors
-                Image.open(io.BytesIO(image_bytes)).verify()
-            except Exception as image_error:
-                print(f"Error processing image file {file.filename}: {image_error}")
-                continue # Skip this file and move to the next
-
+            image_bytes = file.read()
             raw_text = get_ocr_text(image_bytes)
             all_raw_text += raw_text + "\n\n"
         except Exception as e:
-            print(f"Error in OCR or network for file {file.filename}: {e}")
+            print(f"Error processing file {file.filename}: {e}")
 
     structured_data = extract_structured_data(all_raw_text)
 
