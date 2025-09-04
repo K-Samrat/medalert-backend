@@ -13,39 +13,26 @@ load_dotenv()
 # --- Configurations ---
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY')
-# --- We will configure and initialize the model LATER, inside the function ---
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
 app = Flask(__name__)
 CORS(app)
-
-# --- NEW: Health Check Endpoint ---
-@app.route('/health', methods=['GET'])
-def health_check():
-    """A simple endpoint to check if the server is running."""
-    return jsonify({"status": "ok"}), 200
 
 def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
-    # --- NEW: Initialize the AI model HERE, only when needed ---
-    try:
-        genai.configure(api_key=GOOGLE_API_KEY)
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
-    except Exception as e:
-        print(f"Error configuring AI model: {e}")
-        return {"error": "Failed to configure the AI model. Check API Key."}
-    
+    # --- NEW, SIMPLIFIED PROMPT ---
     prompt = (
-        "You are an expert data extractor for consumer products, specializing in health and nutrition. "
-        "Analyze the following text from a product's packaging. Your task is to identify and extract the following: "
+        "You are an expert data extractor for consumer health products. "
+        "Analyze the following text from a product's packaging. Your task is to identify and extract ONLY the following: "
         "1. 'productName': The main brand name. "
-        "2. 'quantity': The net quantity of the product (e.g., '10 Tablets', '500ml', '75g'). "
+        "2. 'quantity': The net quantity of the product (e.g., '10 Tablets', '500ml'). "
         "3. 'description': A brief summary, warnings, or dosage instructions. "
-        "4. 'ingredients': A list of all ingredients. "
-        "5. 'nutritionFacts': A list of all nutrition facts (e.g., 'Calories 150', 'Total Fat 5g'). "
-        "Format your response as a JSON object with five keys: 'productName', 'quantity', 'description', 'ingredients', and 'nutritionFacts'. "
-        "If a piece of information is not found, its value should be null. Do not add any text outside of the JSON object.\n\n"
+        "4. 'ingredients': A list of all active ingredients with their specific quantities (e.g., 'Ibuprofen 400mg'). "
+        "Format your response as a JSON object with four keys: 'productName', 'quantity', 'description', and 'ingredients'. "
+        "If a field is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
         "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
         "---\n\n"
