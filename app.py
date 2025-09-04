@@ -23,32 +23,30 @@ def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
-    # --- FINAL, MOST ROBUST PROMPT ---
     prompt = (
-        "You are a highly advanced data extraction AI for consumer goods. Analyze the OCR text from a product image. "
-        "Your goal is to extract key information and structure it as a JSON object. "
-        "The keys must be: 'productName', 'quantity', 'description', 'ingredients', and 'nutritionFacts'.\n"
-        "1.  **productName**: Find the primary brand or product name (e.g., 'Flexon', 'Cheerios').\n"
-        "2.  **quantity**: Find the net quantity of the product. Look for terms like '15 tablets', 'Net Wt', '500ml', '75g'.\n"
-        "3.  **description**: Extract warnings ('Keep out of reach of children'), dosage, or short usage instructions.\n"
-        "4.  **ingredients**: Extract the list of chemical ingredients for medicines OR the list of food ingredients.\n"
-        "5.  **nutritionFacts**: Extract all data from the 'Nutrition Facts' panel if it exists.\n"
-        "CRITICAL: Always return a valid JSON object. If any field is not found, its value MUST be null. Do not add any text or markdown formatting outside of the single JSON object."
-        "\n\n--- OCR TEXT TO ANALYZE ---\n"
-        f"{text_to_analyze}"
-        "\n\n--- JSON OUTPUT ---"
+        "You are an expert data extractor for consumer products, specializing in health and nutrition. "
+        "Analyze the following text from a product's packaging. Your task is to identify and extract the following: "
+        "1. 'productName': The main brand name. "
+        "2. 'quantity': The net quantity of the product (e.g., '10 Tablets', '500ml', '75g'). "
+        "3. 'description': A brief summary, warnings, or dosage instructions. "
+        "4. 'ingredients': A list of all ingredients. "
+        "5. 'nutritionFacts': A list of all nutrition facts (e.g., 'Calories 150', 'Total Fat 5g'). "
+        "Format your response as a JSON object with five keys: 'productName', 'quantity', 'description', 'ingredients', and 'nutritionFacts'. "
+        "If a piece of information is not found, its value should be null. Do not add any text outside of the JSON object.\n\n"
+        "Here is the text:\n---\n"
+        f"{text_to_analyze}\n"
+        "---\n\n"
+        "JSON Output:"
     )
     
     try:
         response = model.generate_content(prompt)
-        # Clean up the response to ensure it is valid JSON
         json_string = response.text.strip().replace('```json', '').replace('```', '').strip()
         return json.loads(json_string)
     except Exception as e:
         print(f"AI Data Extraction Error: {e}")
         return {"error": f"AI failed to generate valid data. Details: {str(e)}"}
 
-# ... (The rest of the app.py file is unchanged and correct) ...
 def get_ocr_text(image_bytes, engine_number=2):
     ocr_api_url = 'https://api.ocr.space/parse/image'
     payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': str(engine_number)}
