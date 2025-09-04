@@ -13,15 +13,28 @@ load_dotenv()
 # --- Configurations ---
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY')
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash-latest')
+# --- We will configure and initialize the model LATER, inside the function ---
 
 app = Flask(__name__)
 CORS(app)
 
+# --- NEW: Health Check Endpoint ---
+@app.route('/health', methods=['GET'])
+def health_check():
+    """A simple endpoint to check if the server is running."""
+    return jsonify({"status": "ok"}), 200
+
 def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
+    
+    # --- NEW: Initialize the AI model HERE, only when needed ---
+    try:
+        genai.configure(api_key=GOOGLE_API_KEY)
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    except Exception as e:
+        print(f"Error configuring AI model: {e}")
+        return {"error": "Failed to configure the AI model. Check API Key."}
     
     prompt = (
         "You are an expert data extractor for consumer products, specializing in health and nutrition. "
@@ -47,6 +60,7 @@ def extract_structured_data(text_to_analyze):
         print(f"AI Data Extraction Error: {e}")
         return {"error": f"AI failed to generate valid data. Details: {str(e)}"}
 
+# ... (the rest of the app.py code remains the same) ...
 def get_ocr_text(image_bytes, engine_number=2):
     ocr_api_url = 'https://api.ocr.space/parse/image'
     payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': str(engine_number)}
