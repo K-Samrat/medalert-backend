@@ -27,14 +27,11 @@ def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
-    # --- NEW, FOCUSED PROMPT ---
     prompt = (
-        "You are an expert data extractor for consumer products. "
-        "Analyze the following OCR text from a product's packaging. Your task is to identify and extract ONLY the following: "
-        "1. 'quantity': The net quantity of the entire product (e.g., '10 Tablets', '500ml'). "
-        "2. 'ingredients': A list of all ingredients. Each item in the list must be a JSON object with two keys: 'name' (the name of the ingredient) and 'quantity' (the amount of that ingredient). "
-        "Format your response as a JSON object with two keys: 'quantity', and 'ingredients'. "
-        "If a field or a specific ingredient's quantity is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
+        "You are an expert data extractor for health products. Analyze the following text extracted from a product's packaging. "
+        "Your task is to identify and extract the following information: the product's name, a brief description (especially noting consumption instructions), and a list of all ingredients. "
+        "Format your response as a JSON object only. The JSON object should have three keys: 'productName', 'description', and 'ingredients'. "
+        "If a piece of information is not found in the text, its value should be null. Do not add any commentary or introductory text outside of the JSON object.\n\n"
         "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
         "---\n\n"
@@ -47,9 +44,8 @@ def extract_structured_data(text_to_analyze):
         return json.loads(json_string)
     except Exception as e:
         print(f"AI Data Extraction Error: {e}")
-        return {"error": f"AI failed to generate valid data. Details: {str(e)}"}
+        return {"error": "Failed to parse AI response."}
 
-# ... (the rest of the app.py code remains the same) ...
 def get_ocr_text(image_bytes, engine_number=2):
     ocr_api_url = 'https://api.ocr.space/parse/image'
     payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': str(engine_number)}
@@ -57,6 +53,7 @@ def get_ocr_text(image_bytes, engine_number=2):
     response = requests.post(ocr_api_url, files=files, data=payload)
     response.raise_for_status()
     result = response.json()
+
     if result.get('IsErroredOnProcessing'):
         print(f"Engine {engine_number} Error: {result.get('ErrorMessage')}")
         return ""
@@ -72,12 +69,10 @@ def ocr():
     for file in files:
         try:
             image_bytes = file.read()
-            Image.open(io.BytesIO(image_bytes)).verify()
             raw_text = get_ocr_text(image_bytes)
             all_raw_text += raw_text + "\n\n"
         except Exception as e:
             print(f"Error processing file {file.filename}: {e}")
-            continue
 
     structured_data = extract_structured_data(all_raw_text)
 
