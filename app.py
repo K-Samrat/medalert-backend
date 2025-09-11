@@ -60,7 +60,7 @@ def get_ocr_text(image_bytes, engine_number=2):
         print(f"Engine {engine_number} Error: {result.get('ErrorMessage')}")
         return ""
     return result.get('ParsedResults', [{}])[0].get('ParsedText', '')
-@app.route('/ocr', methods=['POST'])
+@app.route('/api/ocr', methods=['POST'])
 def ocr():
     files = request.files.getlist('files[]')
     if not files or files[0].filename == '':
