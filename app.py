@@ -19,22 +19,27 @@ model = genai.GenerativeModel('gemini-1.5-flash-latest')
 app = Flask(__name__)
 CORS(app)
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"}), 200
+
 def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
-    # --- NEW, HIGHLY STRUCTURED PROMPT ---
+    # --- PROMPT UPDATED to remove "description" ---
     prompt = (
         "You are an expert data extractor for consumer health and nutrition products. "
-        "Analyze the following OCR text from a product's packaging. Your task is to identify and extract the following information with high precision: "
+        "Analyze the following OCR text from a product's packaging. Your task is to identify and extract ONLY the following: "
         "1. 'productName': The main brand or product name. "
-        "2. 'quantity': The net quantity of the entire product (e.g., 'Serving per container: 16', '30g', 'Net Wt 16 oz'). "
-        "3. 'ingredients': A list of all ingredients. Each item in the list must be a JSON object with two keys: 'name' (the name of the ingredient, e.g., 'Vitamin A') and 'quantity' (the amount of that ingredient, e.g., '355.5 mcg'). "
-        "Format your response as a single, clean JSON object with three keys: 'productName', 'quantity', and 'ingredients'. "
-        "If a field or a specific ingredient's quantity is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
-        "--- OCR TEXT ---\n"
+        "2. 'quantity': The net quantity of the entire product (e.g., '10 Tablets', '500ml'). "
+        "3. 'ingredients': A list of all active ingredients with their specific quantities, where each item is an object with 'name' and 'quantity'. "
+        "Format your response as a JSON object with three keys: 'productName', 'quantity', and 'ingredients'. "
+        "If a field is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
+        "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
-        "--- JSON OUTPUT ---"
+        "---\n\n"
+        "JSON Output:"
     )
     
     try:
@@ -45,10 +50,6 @@ def extract_structured_data(text_to_analyze):
         print(f"AI Data Extraction Error: {e}")
         return {"error": f"AI failed to generate valid data. Details: {str(e)}"}
 
-# ... (the rest of the app.py code remains the same) ...
-@app.route('/health', methods=['GET'])
-def health_check():
-    return jsonify({"status": "ok"}), 200
 def get_ocr_text(image_bytes, engine_number=2):
     ocr_api_url = 'https://api.ocr.space/parse/image'
     payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': str(engine_number)}
@@ -60,23 +61,30 @@ def get_ocr_text(image_bytes, engine_number=2):
         print(f"Engine {engine_number} Error: {result.get('ErrorMessage')}")
         return ""
     return result.get('ParsedResults', [{}])[0].get('ParsedText', '')
-@app.route('/api/ocr', methods=['POST'])
+
+@app.route('/ocr', methods=['POST'])
 def ocr():
     files = request.files.getlist('files[]')
     if not files or files[0].filename == '':
         return jsonify({'error': 'No selected files'}), 400
+    
     all_raw_text = ""
     for file in files:
         try:
             image_bytes = file.read()
+            Image.open(io.BytesIO(image_bytes)).verify()
             raw_text = get_ocr_text(image_bytes)
             all_raw_text += raw_text + "\n\n"
         except Exception as e:
             print(f"Error processing file {file.filename}: {e}")
+            continue
+
     structured_data = extract_structured_data(all_raw_text)
+
     if structured_data:
         return jsonify(structured_data)
     else:
         return jsonify({'error': "Could not extract any data from the image(s)."}), 404
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
