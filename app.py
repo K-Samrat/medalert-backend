@@ -27,15 +27,14 @@ def extract_structured_data(text_to_analyze):
     if not text_to_analyze.strip():
         return None
     
-    # --- PROMPT UPDATED to remove "description" ---
+    # --- NEW, FOCUSED PROMPT ---
     prompt = (
-        "You are an expert data extractor for consumer health and nutrition products. "
+        "You are an expert data extractor for consumer products. "
         "Analyze the following OCR text from a product's packaging. Your task is to identify and extract ONLY the following: "
-        "1. 'productName': The main brand or product name. "
-        "2. 'quantity': The net quantity of the entire product (e.g., '10 Tablets', '500ml'). "
-        "3. 'ingredients': A list of all active ingredients with their specific quantities, where each item is an object with 'name' and 'quantity'. "
-        "Format your response as a JSON object with three keys: 'productName', 'quantity', and 'ingredients'. "
-        "If a field is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
+        "1. 'quantity': The net quantity of the entire product (e.g., '10 Tablets', '500ml'). "
+        "2. 'ingredients': A list of all ingredients. Each item in the list must be a JSON object with two keys: 'name' (the name of the ingredient) and 'quantity' (the amount of that ingredient). "
+        "Format your response as a JSON object with two keys: 'quantity', and 'ingredients'. "
+        "If a field or a specific ingredient's quantity is not found, its value must be null. Do not add any text outside of the single JSON object.\n\n"
         "Here is the text:\n---\n"
         f"{text_to_analyze}\n"
         "---\n\n"
@@ -50,6 +49,7 @@ def extract_structured_data(text_to_analyze):
         print(f"AI Data Extraction Error: {e}")
         return {"error": f"AI failed to generate valid data. Details: {str(e)}"}
 
+# ... (the rest of the app.py code remains the same) ...
 def get_ocr_text(image_bytes, engine_number=2):
     ocr_api_url = 'https://api.ocr.space/parse/image'
     payload = {'apikey': OCR_SPACE_API_KEY, 'OCREngine': str(engine_number)}
