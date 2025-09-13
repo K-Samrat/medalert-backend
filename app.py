@@ -29,6 +29,7 @@ def extract_structured_data(text_to_analyze):
     
     prompt = (
         "You are an expert data extractor for health products. Analyze the following text extracted from a product's packaging. "
+        "CRITICAL INSTRUCTION: You MUST NOT invent, guess, infer, or add any information that is not explicitly written in the provided text. Your entire response must be grounded in the source text.\n\n"
         "Your task is to identify and extract the following information: the product's name, a brief description (especially noting consumption instructions), and a list of all ingredients. "
         "Format your response as a JSON object only. The JSON object should have three keys: 'productName', 'description', and 'ingredients'. "
         "If a piece of information is not found in the text, its value should be null. Do not add any commentary or introductory text outside of the JSON object.\n\n"
